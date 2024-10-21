@@ -1,5 +1,7 @@
 # Token Distribution Visualizer for Algorand ASA
 
+![Figure_1](https://github.com/user-attachments/assets/c0776d30-96aa-474f-82a4-189b09fdf745)
+
 ## Overview
 This project is designed to fetch and visualize the token distribution of a specific Algorand Asset (ASA) using different visualization techniques. It leverages the Algorand Indexer API to retrieve token balances and then presents the data in three distinct visualizations: Heatmap, Bubble Chart, and Treemap.
 
@@ -18,6 +20,9 @@ python main.py  # Assuming your script is named main.py
 The script will prompt you with a menu to choose from three types of visualizations:
 
 Heatmap
+
 Bubble Chart
+
 Treemap
+
 Enter the number corresponding to your chosen visualization.
