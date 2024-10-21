@@ -138,7 +138,7 @@ def show_bubble_chart():
     
     fig.show()
 
-# Treemap Visualization
+
 def show_treemap():
     fig = px.treemap(
         top_wallets, 
