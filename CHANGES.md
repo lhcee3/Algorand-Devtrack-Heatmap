@@ -5,4 +5,4 @@
 3. Speed up and smoothen the UI as per website requiremnts.
 4. we should be able to cycle new asset ids and also add a search bar for people to lookup theor own asset id's
 5. BONUS: We can add another method for visualization.
-6. keep in mind all these should be done with respective changes as per the lora tesntnet.
+6. keep in mind all these should be done with respective changes as per the [Testnet Lora](https://lora.algokit.io/testnet).
