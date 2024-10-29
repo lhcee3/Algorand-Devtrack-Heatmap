@@ -1,0 +1,206 @@
+name: Release
+
+on:
+  #  push:
+  #    branches:
+  #      - main
+  #    paths-ignore:
+  #      - 'docs/**'
+  #      - '**.md'
+  #      - '.vscode/**'
+  #      - '.idea/**'
+  workflow_dispatch:
+    inputs:
+      production-release:
+        description: 'Production release?'
+        required: true
+        default: 'true'
+
+concurrency: create-release
+
+permissions:
+  contents: write # to be able to publish a GitHub release
+  issues: write # to be able to comment on released issues
+  pull-requests: write # to be able to comment on released pull requests
+  packages: read
+
+jobs:
+  ci:
+    name: CI
+    uses: makerxstudio/shared-config/.github/workflows/node-ci.yml@main
+    with:
+      working-directory: .
+      node-version: 20.x
+      audit-script: npm run audit
+      compile-script: npm run check-types
+      test-script: npm run test
+      pre-test-script: |
+        pipx install algokit
+        algokit localnet start
+        npx --yes wait-on tcp:4001 -t 30000
+
+  build-website:
+    name: Build Website
+    uses: makerxstudio/shared-config/.github/workflows/node-build-zip.yml@main
+    with:
+      node-version: 20.x
+      build-path: dist
+      artifact-name: website
+      static-site: true
+      static-site-env-prefix: VITE
+    needs:
+      - ci
+
+  create-release:
+    runs-on: [ubuntu-20.04]
+    name: Create release
+    needs:
+      - ci
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create release
+        id: create-release-action
+        uses: ./.github/actions/create-release
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          production-release: ${{ github.ref_name == 'main' && inputs.production-release == 'true' }}
+          node-version: 20
+
+    outputs:
+      release-published: ${{ steps.create-release-action.outputs.release-published }}
+      release-version: ${{ steps.create-release-action.outputs.release-version }}
+      release-tag: ${{ steps.create-release-action.outputs.release-tag }}
+      release-id: ${{ steps.create-release-action.outputs.release-id }}
+
+  # TODO: VITE_ tokens need to be replaced after building, but before bundling the Tauri app
+  build-tauri:
+    name: Build Tauri app
+    needs:
+      - create-release
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      matrix:
+        # macos-14 is the Apple Silicon M1 runner
+        platform: [ubuntu-20.04, windows-latest, 'macos-12', 'macos-14']
+    if: ${{ needs.create-release.outputs.release-published == 'true' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Build for Linux
+        id: build-linux
+        if: ${{ runner.os == 'Linux' }}
+        uses: ./.github/actions/build-linux
+        with:
+          release-version: ${{ needs.create-release.outputs.release-version }}
+
+      - name: Build for Windows
+        id: build-windows
+        if: ${{ runner.os == 'Windows' }}
+        uses: ./.github/actions/build-windows
+        with:
+          production-release: ${{ inputs.production-release }}
+          release-version: ${{ needs.create-release.outputs.release-version }}
+          package_name: algokit-lora
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      - name: Build for Mac
+        id: build-mac
+        if: ${{ runner.os == 'macOS' }}
+        uses: ./.github/actions/build-mac
+        with:
+          production-release: ${{ inputs.production-release }}
+          release-version: ${{ needs.create-release.outputs.release-version }}
+    outputs:
+      linux-artifact-name: ${{ steps.build-linux.outputs.artifact-name }}
+
+  deploy-website-staging:
+    name: Publish Website to Staging
+    needs:
+      - build-website
+    runs-on: [ubuntu-22.04]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: website
+          path: artifacts
+
+      - name: Unzip
+        run: |
+          cd artifacts
+          mkdir -p website
+          unzip website.zip -d website
+
+      - name: Apply Staging Transforms
+        uses: makerxstudio/shared-config/.github/actions/placeholder-transforms@main
+        with:
+          app-artifact-path: artifacts/website
+          static-site-transforms: |-
+            VITE_DISPENSER_AUTH0_DOMAIN:dispenser-staging.eu.auth0.com
+            VITE_DISPENSER_AUTH0_CLIENT_ID:pSffrx40HwIdWAJFeGCsy5FZn2NzYIvO
+            VITE_DISPENSER_AUTH0_AUDIENCE:api-staging-dispenser-user
+            VITE_TESTNET_DISPENSER_API_URL:https://api.dispenser-dev.algorandfoundation.tools
+            VITE_TESTNET_DISPENSER_ADDRESS:A3Q4VQFQ5DLEIWCMUX6V7YFZ7BUPWUXWY4YVNJQODUODSQ7KVEFOZUNFUQ
+
+      - name: Deploy website to Netlify
+        run: |
+          npx netlify-cli deploy --site ${{ secrets.NETLIFY_SITE_ID }} --auth ${{ secrets.NETLIFY_AUTH_TOKEN }} --dir artifacts/website --alias staging
+
+  publish-app:
+    name: Publish
+    needs:
+      - create-release
+      - build-tauri
+    runs-on: [ubuntu-20.04]
+    if: ${{ inputs.production-release == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Publish to Snap
+        uses: ./.github/actions/publish-to-snap
+        with:
+          release-version: ${{ needs.create-release.outputs.release-version }}
+          release-tag: ${{ needs.create-release.outputs.release-tag }}
+          artifact-name: ${{ needs.build-tauri.outputs.linux-artifact-name }}
+
+      - name: Publish to Winget
+        uses: ./.github/actions/publish-to-winget
+        with:
+          release-version: ${{ needs.create-release.outputs.release-version }}
+          release-tag: ${{ needs.create-release.outputs.release-tag }}
+
+      - name: Publish to Brew
+        uses: ./.github/actions/publish-to-brew
+        with:
+          release-version: ${{ needs.create-release.outputs.release-version }}
+          release-tag: ${{ needs.create-release.outputs.release-tag }}

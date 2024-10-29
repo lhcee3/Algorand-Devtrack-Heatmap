@@ -1,0 +1,57 @@
+name: 'Build for Linux'
+description: 'Build for Linux'
+inputs:
+  release-version:
+    description: 'The release version'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Get artifact name
+      id: set-env
+      run: |
+        echo "artifact_name=algokit-lora-linux-${{ runner.arch }}" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+      shell: bash
+
+    - name: Bump version in tauri.conf.json
+      if: ${{ inputs.release-version != '' }}
+      run: |
+        sed -i "s/\"version\": \"0.0.0\"/\"version\": \"${{ inputs.release-version }}\"/g" "src-tauri/tauri.conf.json"
+      shell: bash
+
+    - name: Build tauri app
+      run: |
+        npm run tauri build
+      shell: bash
+
+    - name: Create icons and desktop file
+      run: |
+        chmod +x ./scripts/snap/create-desktop-file.sh
+        ./scripts/snap/create-desktop-file.sh ${{ github.workspace }}/src-tauri/target/release
+        cp ${{ github.workspace }}/src-tauri/icons ${{ github.workspace }}/src-tauri/target/release/icons -r
+      shell: bash
+
+    - name: Zip to preserve permissions
+      run: |
+        cd src-tauri/target/release
+        tar -czvf ${{ github.workspace }}/${{ steps.set-env.outputs.artifact_name }}.tar.gz --exclude=bundle --exclude=build --exclude=deps .
+      shell: bash
+
+    - name: Upload binary as artifact
+      id: upload-artifact
+      uses: actions/upload-artifact@v4
+      with:
+        if-no-files-found: error
+        name: ${{ steps.set-env.outputs.artifact_name }}
+        path: ${{ github.workspace }}/${{ steps.set-env.outputs.artifact_name }}.tar.gz
+
+outputs:
+  artifact-name:
+    description: 'The name of the artifact'
+    value: ${{ steps.set-env.outputs.artifact_name }}.tar.gz
