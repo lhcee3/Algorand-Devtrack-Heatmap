@@ -23,3 +23,8 @@ cp .env.sample .env
 npm install
 npm run dev
 ```
+## Collaborators
+
+This is the team that has worked towards bringing this heatmap to life. 
+
+Sai Aneesh (GitHub)[https://github.com/lhcee3]
