@@ -23,9 +23,6 @@ export function Header({ className }: Props) {
           <SvgLoraDark className="hidden dark:block" />
         </TemplatedNavLink>
         <Search />
-        <TemplatedNavLink urlTemplate={Urls.Heatmap} className="self-center">
-          Heatmap
-        </TemplatedNavLink>
       </div>
       <div className={cn('flex items-center gap-4 ml-auto overflow-hidden')}>
         <TemplatedNavLink urlTemplate={Urls.Settings} className="ml-2 truncate">
