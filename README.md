@@ -1,4 +1,5 @@
 # Integration of a Fully Functional Heatmap Feature into the Lora Algokit Website
+![heatmpa gif for readme](https://github.com/user-attachments/assets/6bed5110-a9bf-498b-9dba-ee2c86000f86)
 
 ## Project Purpose
 
@@ -22,3 +23,10 @@ cp .env.sample .env
 npm install
 npm run dev
 ```
+## Collaborators
+
+This is the team that has worked towards bringing this heatmap to life. 
+
+Sai Aneesh : [GitHub](https://github.com/lhcee3)
+
+Shiva Sharan : [GitHub](https://github.com/Sharan3321)
