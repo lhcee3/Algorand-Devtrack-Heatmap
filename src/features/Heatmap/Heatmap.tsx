@@ -15,23 +15,29 @@ const Heatmap: React.FC = () => {
   const [assetId, setAssetId] = useState<number>(1691271561)
   const [inputAssetId, setInputAssetId] = useState<string>('1691271561')
 
+  const fontConfig = {
+    family: 'Arial, sans-serif',
+    size: 12,
+    color: '#ffffff',
+    weight: 400,
+    shadow: '0'
+  }
+
   const fetchTokenBalances = async (assetId: number): Promise<TokenBalance[]> => {
     let balances: TokenBalance[] = []
-    let nextToken = ''
-
-    while (true) {
+    let nextToken: string | null = ''
+    
+    while (nextToken !== null) {
       try {
         const url = `${indexerUrl}/v2/assets/${assetId}/balances`
-        const params = nextToken ? { next: nextToken } : {}
+        const params: { next?: string } = nextToken ? { next: nextToken } : {}
         const response = await axios.get(url, { params })
         const data = response.data
 
         balances = [...balances, ...data.balances]
-        nextToken = data['next-token']
-        if (!nextToken) break
+        nextToken = data['next-token'] || null
       } catch (error) {
-        console.error('An error occurred:', error)
-        break
+        nextToken = null
       }
     }
 
@@ -73,33 +79,33 @@ const Heatmap: React.FC = () => {
       <div className="mb-10">
         <Plot
           data={[{
-            z: heatmapData,
+            z: heatmapData as number[][],
             type: 'heatmap',
             colorscale: 'YlOrRd',
             colorbar: {
               title: 'Token Amount',
-              titlefont: { color: '#ffffff' },
-              titlefont: { color: '#ffffff' },
+              titlefont: { ...fontConfig },
             },
           }]}
           layout={{
             title: `Token Distribution Heatmap for ASA ${assetId} (Mainnet)`,
             xaxis: { 
               title: 'Wallet Column Index', 
-              titlefont: { color: '#ffffff' }, 
-              tickfont: { color: '#ffffff' } 
+              titlefont: { ...fontConfig, size: 14 }, 
+              tickfont: { ...fontConfig } 
             },
             yaxis: { 
               title: 'Wallet Row Index', 
-              titlefont: { color: '#ffffff' }, 
-              tickfont: { color: '#ffffff' } 
+              titlefont: { ...fontConfig, size: 14 }, 
+              tickfont: { ...fontConfig } 
             },
             margin: { l: 40, r: 40, t: 80, b: 100 },
             width: 1100,
             height: 680,
             paper_bgcolor: '#001324',
             plot_bgcolor: '#001324',
-            font: { color: '#ffffff' },
+            font: { ...fontConfig },
+            titlefont: { ...fontConfig, size: 14 },
           }}
         />
       </div>
@@ -134,32 +140,31 @@ const Heatmap: React.FC = () => {
               color: bubbleData.map((data) => data.amount),
               colorscale: 'Viridis',
               showscale: true,
+              colorbar: {
+                title: 'Token Amount',
+                titlefont: { ...fontConfig },
+              },
             },
           }]}
           layout={{
             title: `Whale Asset vs Small Wallets for ASA ${assetId}`,
             xaxis: { 
               title: 'Wallet Index (Sorted by Amount)', 
-              titlefont: { color: '#ffffff' }, 
-              tickfont: { color: '#ffffff' } 
+              titlefont: { ...fontConfig, size: 14 }, 
+              tickfont: { ...fontConfig } 
             },
             yaxis: { 
               title: 'Token Amount (Normalized)', 
-              titlefont: { color: '#ffffff' }, 
-              tickfont: { color: '#ffffff' } 
+              titlefont: { ...fontConfig, size: 14 }, 
+              tickfont: { ...fontConfig } 
             },
             margin: { l: 40, r: 40, t: 80, b: 100 },
-            coloraxis: {
-              colorbar: {
-                title: 'Token Amount',
-                titlefont: { color: '#ffffff' },
-              },
-            },
             width: 1100,
             height: 680,
             paper_bgcolor: '#001324', 
             plot_bgcolor: '#001f3b',
-            titlefont: { color: '#ffffff' }, 
+            titlefont: { ...fontConfig, size: 14 }, 
+            font: { ...fontConfig },
           }}
         />
       </div>
@@ -167,16 +172,21 @@ const Heatmap: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col p-5 max-h-screen overflow-y-auto">
-      <form onSubmit={handleSearchSubmit} className="flex items-center mb-5">
+    <div className="flex max-h-screen flex-col overflow-y-auto p-5">
+      <form onSubmit={handleSearchSubmit} className="mb-5 flex items-center">
         <input
           type="text"
           value={inputAssetId}
           onChange={(e) => setInputAssetId(e.target.value)}
           placeholder="Enter Asset ID"
-          className="p-2 text-lg border border-gray-300 rounded-md mr-2 w-52"
+          className="mr-2 w-52 rounded-md border border-gray-300 p-2 text-lg"
         />
-        <button type="submit" className="px-4 py-2 text-lg text-white bg-blue-600 rounded-md hover:bg-blue-700 transition">Search</button>
+        <button 
+          type="submit" 
+          className="rounded-md bg-blue-600 px-4 py-2 text-lg text-white transition hover:bg-blue-700"
+        >
+          Search
+        </button>
       </form>
       {showHeatmap()}
       {showBubbleChart()}
