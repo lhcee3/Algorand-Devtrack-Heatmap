@@ -29,4 +29,4 @@ This is the team that has worked towards bringing this heatmap to life.
 
 Sai Aneesh : [GitHub](https://github.com/lhcee3)
 
-Shiva Sharan : [GitHub](https://github.com/Sharan3321)
+
